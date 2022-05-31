@@ -428,6 +428,10 @@ impl ThreadProfiler {
         }
         THREAD_PROFILER.with(|p| f(&mut p.borrow_mut()))
     }
+
+    pub fn now_ns_fn(&self) -> i64 {
+        (self.now_ns)()
+    }
 }
 
 // ----------------------------------------------------------------------------

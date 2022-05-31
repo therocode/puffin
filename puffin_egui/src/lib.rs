@@ -335,8 +335,9 @@ pub struct ProfilerUi {
     slowest_frame: f32,
 
     /// When did we last run a pass to pack all the frames?
+    /// NOTE: this type is changed from std::time::Instant to i64 compared to the original repo
     #[cfg_attr(feature = "serde", serde(skip))]
-    last_pack_pass: Option<std::time::Instant>,
+    last_pack_pass: Option<i64>,
 }
 
 impl Default for ProfilerUi {
@@ -416,18 +417,19 @@ impl ProfilerUi {
     }
 
     fn run_pack_pass_if_needed(&mut self, frame_view: &FrameView) {
-        let last_pack_pass = self
-            .last_pack_pass
-            .get_or_insert_with(std::time::Instant::now);
-        let time_since_last_pack = last_pack_pass.elapsed();
-        if time_since_last_pack > std::time::Duration::from_secs(1) {
+        // NOTE: This function contains changes compared to the original repository.
+        let now = || ThreadProfiler::call(|tp| tp.now_ns_fn());
+
+        let last_pack_pass = *self.last_pack_pass.get_or_insert_with(now);
+        let time_in_ns_since_last_pack = (now() - last_pack_pass) as u128;
+        if time_in_ns_since_last_pack > std::time::Duration::from_secs(1).as_nanos() {
             puffin::profile_scope!("pack_pass");
             for frame in self.all_known_frames(frame_view) {
                 if !self.is_selected(frame_view, frame.frame_index()) {
                     frame.pack();
                 }
             }
-            self.last_pack_pass = Some(std::time::Instant::now());
+            self.last_pack_pass = Some(now());
         }
     }
 
